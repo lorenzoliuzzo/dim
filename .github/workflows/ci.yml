@@ -32,7 +32,7 @@ jobs:
         run: nim -v
       - name: Echo Nimble version
         run: nimble -v
-      - name: Run build test
-        run: nimble build -Y
+      - name: Run install test
+        run: nimble install -Y
       - name: Run unit tests
         run: nimble test -Y

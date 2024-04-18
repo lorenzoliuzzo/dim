@@ -130,3 +130,10 @@ proc expectAsgnAsIn*(node: NimNode, what: string, forms: varargs[string]): NimNo
     if not node.isAsgn:
         node.errorTrace(expectedAsIn, what, formVariants(forms))
     node
+
+
+proc expectIdentDotPairAsIn*(node: NimNode, what: string, forms: varargs[string]): NimNode {.discardable} =
+    ## Check whenever the node is call ident. Return the node for chaining.
+    if not node.isIdentDotPair:
+        node.errorTrace(expectedAsIn, what, formVariants(forms))
+    node

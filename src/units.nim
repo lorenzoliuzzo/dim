@@ -1,4 +1,4 @@
-import units/[utils, unitInfo, prefix, ops]
+import units/[utils, unitInfo, ops]
 from sequtils import mapIt
 
 
@@ -58,3 +58,35 @@ macro unitQuantity*(code: untyped) =
                 const aname* = 1.0.qname
 
             result.add getAstCompact(genAbbr(qname, aname, ident"x"))    
+
+      
+macro unitPrefix*(code: untyped) =
+    result = newStmtList()
+
+    # implement hasUnitPrefix to satisfy UnitPrefixed
+    for prefix in code:
+        prefix.expectCallOneAsIn "prefix declaration", "prefix: number"
+
+        let (name, value) = (prefix.callName, prefix.callOneArg)
+        name.expectIdentAs "prefix name"
+
+        template genPrefix(name, value, x) =
+            proc name*(x: float): auto = x * value
+
+        result.add getAstCompact(genPrefix(name, value, ident"x"))
+
+
+macro unitAbbr*(code: untyped) =
+    result = newStmtList()
+
+    for abbr in code:
+        abbr.expectAsgnAsIn("prefixed unit abbreviation declaration", "abbr = prefix.unit")
+        let 
+            name = abbr.asgnL.expectIdentAs "prefixed unit abbreviation"
+            what = abbr.asgnR.expectIdentDotPairAsIn("prefixed unit", fmt"{name} = prefixed.unit")
+
+        template genAbbrFun(abbr, prefix, unit, x) =
+            proc abbr*(x: float): auto {.inline.} = x.prefix.unit
+
+        let (prefix, unit) = (what.dotL, what.dotR)
+        result.add getAstCompact(genAbbrFun(name, prefix, unit, ident"x"))

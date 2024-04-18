@@ -8,9 +8,3 @@ unitSystem si:
     ElectricCurrent: amperes(A)
     Temperature:     kelvins(K)
     Amount:          moles(mol)
-
-let a = Length(10)
-let b = 10.meters
-assert b is Length
-echo a
-echo b

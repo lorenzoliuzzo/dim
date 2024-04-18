@@ -11,7 +11,8 @@ macro unitSystem*(name, impl: untyped) =
     result.add info.typeDefinition
     result.add info.innerOpsDefinition
     result.add info.outerOpsDefinition
-
+    result.add info.printOpsDefinition
+    
     for i, _ in info.units:
         result.add info.quantityDefinition(i)
 

@@ -8,11 +8,18 @@ unitQuantity:
 let 
     a = 1.0.meters
     b = 2.0.seconds
+    c = a / b
 
-assert a / b is Velocity
 assert 1 / b is Frequency
 assert b^-1 is Frequency
+assert c is Velocity
 
-let c = 3.0 * a
-let d = a + c
-assert d is Length
+let 
+    d = 3.0 * a
+    f = a + d
+
+assert f is Length
+
+echo a
+echo d
+echo f

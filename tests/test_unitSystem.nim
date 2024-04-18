@@ -12,3 +12,5 @@ unitSystem si:
 let a = Length(10)
 let b = 10.meters
 assert b is Length
+echo a
+echo b

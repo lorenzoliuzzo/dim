@@ -1,7 +1,6 @@
 import utils, unitInfo
 from math import pow 
 
-
 template systemInnerOps(System, a, b, step, S) =
     # Operations preserving units.
 

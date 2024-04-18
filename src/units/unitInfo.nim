@@ -58,10 +58,6 @@ proc name*(info: SystemInfo): NimNode {.inline.} = info.name
 proc units*(info: SystemInfo): seq[UnitInfo] {.inline.} = info.units
 
 
-proc unitlessType(info: SystemInfo): NimNode {.inline.} =
-    info.units.foldl(a.add newLit 0, newTree(nnkBracketExpr, info.name))
-
-
 proc typeDefinition*(info: SystemInfo): NimNode =
     ## Generate unit system's type definition.
 
@@ -86,23 +82,22 @@ proc typeDefinition*(info: SystemInfo): NimNode =
     result.add getAst(unit(ident($info.name & "Unit"), info.name))
 
 
-proc quantityDefinition*(info: SystemInfo, idx: int): NimNode =
-    ## i-th quantity type definition.
-    result = newStmtList()
-
+proc quantityDefinition*(info: SystemInfo, idx: int): NimNode = ## i-th quantity type definition.
     let 
         qname = info.units[idx].quantity
         uname = info.units[idx].name
-        definition = info.unitlessType
+        definition = info.units.foldl(a.add newLit 0, newTree(nnkBracketExpr, info.name)) # unitlessType
 
+    result = newStmtList()
     definition[idx + 1] = newLit 1
 
-    template defType(qname, definition) =
+    template defQuantityType(qname, definition) =
         type qname* = definition
+        
+    result.add getAst(defQuantityType(qname, definition))
 
-    result.add getAst(defType(qname, definition))
+    template declUnitFn(qname, rname, x) =
 
-    template declFun(qname, rname, x) =
         proc rname*[T: floatMaybePrefixed](x: T): qname {.inline.} =
             x.float.qname
 
@@ -110,4 +105,4 @@ proc quantityDefinition*(info: SystemInfo, idx: int): NimNode =
             static:
                 error(fmt"cannot prove '{astToStr(x)}' is an optionally unit prefixed float (maybe 'import units/prefix'?)")
 
-    result.add getAst(declFun(qname, uname, ident"x")) 
+    result.add getAst(declUnitFn(qname, uname, ident"x"))

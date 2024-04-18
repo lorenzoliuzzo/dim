@@ -168,3 +168,43 @@ proc outerOpsDefinition*(info: SystemInfo): NimNode =
                     ops.add up[0][2]
 
         for i in 0..<toUpdate.len: injectManipulatedTypes(info, toUpdate[i], ops[i])
+
+
+proc printOpsDefinition*(info: SystemInfo): NimNode =
+    ## Generate print operations for floats with units.
+
+    # first create initializations, then add whenned appendings
+    template ops(System, s, S, result) =
+        proc `$`*[S: System](s: typedesc[S]): string =
+            result = ""
+        proc `$`*[S: System](s: S): string =
+            result = $(s.float) & " "
+    
+    result = getAst(ops(info.name, ident"s", ident"S", ident"result"))
+
+    for i, unitInfo in info.units:
+        let quantity = unitInfo.quantity
+        let abbr = unitInfo.abbr
+
+        # add a single prop to the output
+        #TODO: string optimization using yet another macro?
+        proc printProp(name, uname: NimNode): NimNode =
+            template appProp(prop, unit, result) =
+                when S.prop != 0:
+                    when S.prop == 1:
+                        result &= unit & " "
+                    else:
+                        result &= unit & "^" & $(S.prop) & " "
+            let cond = getAst(appProp(name, $uname, ident"result"))
+            result = cond
+
+        result[0].body.add printProp(quantity, quantity)
+        result[1].body.add printProp(quantity, abbr)
+
+    # del the trailing space
+    template delLastChar(result) =
+        if result.len != 0: result.setLen(result.len-1)
+
+    let delLastResultChar = getAst(delLastChar(ident"result"))
+    result[0].body.add delLastResultChar
+    result[1].body.add delLastResultChar

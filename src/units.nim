@@ -1,7 +1,16 @@
-# This is just an example to get you started. A typical library package
-# exports the main API in this file. Note that you cannot rename this file
-# but you can remove it if you wish.
+import 
+    units/[utils, unitInfo, prefix]
 
-proc add*(x, y: int): int =
-  ## Adds two numbers together.
-  return x + y
+from sequtils import mapIt
+
+
+macro unitSystem*(name, impl: untyped) =
+    if name.kind != nnkIdent: error("expected system name", name)
+
+    let info = newSystemInfo(name, impl.mapIt(it.getUnitInfo))
+
+    result = newStmtList()
+    result.add info.typeDefinition
+
+    for i, _ in info.units:
+        result.add info.quantityDefinition(i)

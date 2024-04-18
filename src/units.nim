@@ -58,6 +58,3 @@ macro unitQuantity*(code: untyped) =
                 const aname* = 1.0.qname
 
             result.add getAstCompact(genAbbr(qname, aname, ident"x"))    
-
-    for i, _ in info.units:
-        result.add info.quantityDefinition(i)

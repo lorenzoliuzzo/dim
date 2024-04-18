@@ -124,9 +124,9 @@ proc expectCallOneAsIn*(node: NimNode, what: string, forms: varargs[string]): Ni
     if not node.isCallOne:
         node.errorTrace(expectedAsIn, what, formVariants(forms))
     node
+    
 proc expectAsgnAsIn*(node: NimNode, what: string, forms: varargs[string]): NimNode {.discardable} =
     ## Check whenever the node is call ident. Return the node for chaining.
     if not node.isAsgn:
         node.errorTrace(expectedAsIn, what, formVariants(forms))
     node
-    result.del(0)

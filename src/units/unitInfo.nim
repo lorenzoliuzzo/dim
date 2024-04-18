@@ -97,6 +97,7 @@ proc quantityDefinition*(info: SystemInfo, idx: int): NimNode = ## i-th quantity
     result.add getAst(defQuantityType(qname, definition))
 
     template declUnitFn(qname, rname, x) =
+
         proc rname*[T: floatMaybePrefixed](x: T): qname {.inline.} =
             x.float.qname
 

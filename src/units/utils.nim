@@ -40,7 +40,6 @@ proc isAsgnToIdent*(node: NimNode): bool =
     node.isAsgn and node[0].kind == nnkIdent
 
 
-
 proc callToPar*(node: NimNode): NimNode =
     ## Converts call to its arguments in par.
     result = newNimNode(nnkPar)
@@ -130,3 +129,4 @@ proc expectAsgnAsIn*(node: NimNode, what: string, forms: varargs[string]): NimNo
     if not node.isAsgn:
         node.errorTrace(expectedAsIn, what, formVariants(forms))
     node
+    result.del(0)

@@ -1,6 +1,4 @@
-import 
-    units/[utils, unitInfo, prefix, ops]
-
+import units/[utils, unitInfo, prefix, ops]
 from sequtils import mapIt
 
 
@@ -11,6 +9,7 @@ macro unitSystem*(name, impl: untyped) =
 
     result = newStmtList()
     result.add info.typeDefinition
+    result.add info.innerOpsDefinition
     result.add info.outerOpsDefinition
 
     for i, _ in info.units:

@@ -1,6 +1,44 @@
 import utils, unitInfo
 from math import pow 
 
+
+template systemInnerOps(System, a, b, step, S) =
+    # Operations preserving units.
+
+    proc `==`*[S: System](a, b: S): bool {.inline.} = (a.float == b.float)
+    proc `<`*[S: System](a, b: S): bool {.inline.} = (a.float < b.float)
+    proc `<=`*[S: System](a, b: S): bool {.inline.} = (a.float <= b.float)
+
+    proc `-`*[S: System](a: S): S {.inline.} = S(-a.float)
+    proc abs*[S: System](a: S): S {.inline.} = S(a.float.abs)
+
+    proc `+`*[S: System](a, b: S): S {.inline.} = (a.float + b.float).S
+    proc `-`*[S: System](a, b: S): S {.inline.} = (a.float - b.float).S
+
+    proc `+=`*[S: System](a: var S, b: S) {.inline.} = a = a + b
+    proc `-=`*[S: System](a: var S, b: S) {.inline.} = a = a - b
+
+    proc `*`*[S: System](a: float, b: S): S {.inline.} = (a * b.float).S
+    proc `*`*[S: System](a: S, b: float): S {.inline.} = (a.float * b).S
+    proc `/`*[S: System](a: S, b: float): S {.inline.} = (a.float / b).S
+
+    proc `*=`*[S: System](a: var S, b: float) {.inline.} = a = a * b
+    proc `/=`*[S: System](a: var S, b: float) {.inline.} = a = a / b
+
+    proc `div`*[S: System](a,b: S): int {.inline.} = (a.float / b.float).toInt
+    proc `mod`*[S: System](a,b: S): int {.inline.} = (a / b) - (a div b)
+  
+    iterator countup*[S: System](a, b, step: S): S {.inline.} =
+        ## Floating-point countup iterator.
+        var acc = a
+        while acc < b:
+            acc += step
+            yield acc
+
+proc innerOpsDefinition*(info: SystemInfo): NimNode {.inline.} =
+    getAst(systemInnerOps(info.name, ident"a", ident"b", ident"step", ident"S1"))
+        
+        
 # template systemInnerOps(System, a, b, step, S) =
 template systemOuterOps(System, a, b, S, S1, S2) =
     template `*`*[S1, S2: System](a: typedesc[S1], b: typedesc[S2]): auto =

@@ -1,4 +1,4 @@
-import units/[utils, unitInfo, prefix, ops]
+import units/[utils, unitInfo, ops]
 from sequtils import mapIt
 
 

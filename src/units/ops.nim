@@ -208,3 +208,5 @@ proc printOpsDefinition*(info: SystemInfo): NimNode =
     let delLastResultChar = getAst(delLastChar(ident"result"))
     result[0].body.add delLastResultChar
     result[1].body.add delLastResultChar
+
+        for i in 0..<toUpdate.len: injectManipulatedTypes(info, toUpdate[i], ops[i])

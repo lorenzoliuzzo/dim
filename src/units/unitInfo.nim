@@ -1,5 +1,7 @@
-import utils
+import utils, prefix
 from strformat import fmt
+from sequtils import foldl
+
 
 type UnitInfo* = object  ## Contains information on a quantity and its unit.
     quantity: NimNode
@@ -54,3 +56,58 @@ proc newSystemInfo*(name: NimNode, units: seq[UnitInfo]): SystemInfo {.inline.} 
 
 proc name*(info: SystemInfo): NimNode {.inline.} = info.name
 proc units*(info: SystemInfo): seq[UnitInfo] {.inline.} = info.units
+
+
+proc unitlessType(info: SystemInfo): NimNode {.inline.} =
+    info.units.foldl(a.add newLit 0, newTree(nnkBracketExpr, info.name))
+
+
+proc typeDefinition*(info: SystemInfo): NimNode =
+    ## Generate unit system's type definition.
+
+    # multiple-usage predefined nodes: `static[int]` and `distinct float`
+    let 
+        statNode = newTree(nnkStaticTy, bindSym"int")
+        distNode = newTree(nnkDistinctTy, bindSym"float")
+
+    # Parameters node containing all quantities (of type static[int]).
+    let genNode = newNimNode(nnkGenericParams).add:
+                    info.units
+                        .foldl(a.add b.quantity, newNimNode(nnkIdentDefs))
+                        .add(statNode)
+                        .add(newEmptyNode())
+
+    result = newStmtList()
+    result.add newNimNode(nnkTypeSection).add(newTree(nnkTypeDef, info.name, genNode, distNode))
+    
+    template unit(Unit, System) =
+        type Unit[S: System] = object
+    
+    result.add getAst(unit(ident($info.name & "Unit"), info.name))
+
+
+proc quantityDefinition*(info: SystemInfo, idx: int): NimNode =
+    ## i-th quantity type definition.
+    result = newStmtList()
+
+    let 
+        qname = info.units[idx].quantity
+        uname = info.units[idx].name
+        definition = info.unitlessType
+
+    definition[idx + 1] = newLit 1
+
+    template defType(qname, definition) =
+        type qname* = definition
+
+    result.add getAst(defType(qname, definition))
+
+    template declFun(qname, rname, x) =
+        proc rname*[T: floatMaybePrefixed](x: T): qname {.inline.} =
+            x.float.qname
+
+        template rname*[T: not floatMaybePrefixed](x: T) =
+            static:
+                error(fmt"cannot prove '{astToStr(x)}' is an optionally unit prefixed float (maybe 'import units/prefix'?)")
+
+    result.add getAst(declFun(qname, uname, ident"x")) 

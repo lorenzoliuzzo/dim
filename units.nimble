@@ -1,11 +1,8 @@
 # Package
-
 version       = "0.1.0"
 author        = "lorenzoliuzzo"
-description   = "A Dimensional Analysis Package written in Nim"
+description   = "Dimensional Analysis in Nim"
 license       = "GPL-3.0-or-later"
-srcDir        = "src"
-skipDirs       = @["tests"]
-
+srcDir        = "units"
 # Dependencies
 requires "nim >= 2.0.2"

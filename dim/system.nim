@@ -2,31 +2,6 @@ import macros
 from strformat import fmt
 from sequtils import foldl, mapIt
 from math import pow
-from strutils import `%`
-
-
-proc callToPar(node: NimNode): NimNode =
-    ## Converts call to its arguments in par.
-    result = newNimNode(nnkPar)
-    node.copyChildrenTo(result)
-    result.del(0)
-
-proc prettyRepr(s: string): string {.inline.} = s
-
-proc prettyRepr(node: NimNode): string {.inline.} =
-    if node.kind == nnkCall and node.len == 2: fmt"{node[0].repr}: {node[1].repr}" else: node.repr
-
-proc errorTrace(src: NimNode, fmt: string, args: varargs[string, prettyRepr]) =
-    ## Nice and handy error shouter.
-    var s = @[src.prettyRepr]
-    for arg in args: s.add arg
-    error(fmt % s, src)
-
-const
-    notValidAs = "invalid $2: '$1'"
-    identExpectedAs = "identifier expected as $2 but '$1' found"
-    expectedAsIn = "$2 in form '$3' expected, but '$1' found"
-    expectedAsMaybe = "$2 in form '$4' expected, but '$1' found (maybe try '$3'?)"
 
 
 type UnitInfo = object  ## Contains information on a quantity and its unit.
@@ -41,6 +16,11 @@ proc quantity*(info: UnitInfo): NimNode {.inline.} = info.quantity
 proc name*(info: UnitInfo): NimNode {.inline.} = info.name
 proc abbr*(info: UnitInfo): NimNode {.inline.} = info.abbr
 
+proc callToPar(node: NimNode): NimNode =
+    ## Converts call to its arguments in par.
+    result = newNimNode(nnkPar)
+    node.copyChildrenTo(result)
+    result.del(0)
 
 proc getUnitInfo(node: NimNode): UnitInfo =
     ## Checks a node for being a valid quantity declaration and converts it to a UnitInfo object.
@@ -100,7 +80,7 @@ proc typeDefinition*(info: SystemInfo): NimNode =
     result.add newNimNode(nnkTypeSection).add(newTree(nnkTypeDef, info.name, genNode, distNode))
     
     template unit(Unit, System) =
-        type Unit[S: System] = object
+        type Unit*[S: System] = object
     
     result.add getAst(unit(ident($info.name & "Unit"), info.name))
 
@@ -313,23 +293,28 @@ proc printOpsDefinition*(info: SystemInfo): NimNode =
     result[1].body.add delLastResultChar
 
 
-template defQuantityType(qname, definition) =
-    type qname* = definition
-        
-template declUnitFn(qname, rname, x) =
-    proc rname*[T](x: T): qname {.inline.} = x.float.qname
+template genQuantity(qname, def) =
+    type qname* = def
+
+template genUnit(qname, uname, x) =
+    proc uname*(x: float | int): qname {.inline.} = x.qname
+
+template genAbbr(qname, aname, x) =
+    proc aname*(x: float | int): qname {.inline.} = x * 1.0.qname
 
 proc quantityDefinition*(info: SystemInfo, idx: int): NimNode = ## i-th quantity type definition.
     let 
         qname = info.units[idx].quantity
         uname = info.units[idx].name
+        aname = info.units[idx].abbr
         definition = info.units.foldl(a.add newLit 0, newTree(nnkBracketExpr, info.name)) # unitlessType
 
     result = newStmtList()
     definition[idx + 1] = newLit 1
 
-    result.add getAst(defQuantityType(qname, definition))
-    result.add getAst(declUnitFn(qname, uname, ident"x"))
+    result.add getAst(genQuantity(qname, definition))
+    result.add getAst(genUnit(qname, uname, ident"x"))
+    result.add getAst(genAbbr(qname, aname, ident"x"))
 
 
 macro unitSystem*(name, impl: untyped) =
@@ -347,15 +332,6 @@ macro unitSystem*(name, impl: untyped) =
         result.add info.quantityDefinition(i)
 
 
-template genQuantity(qname, def) =
-    type qname* = def
-
-template genUnit(qname, uname, x) =
-    proc uname*(x: float | int): qname {.inline.} = x.qname
-
-template genAbbr(qname, aname, x) =
-    proc aname*(x: float | int): qname = x * 1.0.qname
-
 macro unitQuantity*(code: untyped) =
     result = newStmtList()
 
@@ -363,7 +339,7 @@ macro unitQuantity*(code: untyped) =
         var qname, uname, aname, definition: NimNode
 
         if not (quantity.len == 2 and quantity[0].kind == nnkIdent):
-            quantity.errorTrace(notValidAs, "quantity declaration")
+            error(fmt"invalid quantity declaration: '{quantity.repr}'", quantity)
 
         # no unit:
         if quantity.kind == nnkAsgn:
@@ -375,20 +351,19 @@ macro unitQuantity*(code: untyped) =
             qname = quantity[0]
             let afterName = quantity[1][0]
             if not (afterName.kind == nnkAsgn and afterName.len == 2):
-                afterName.errorTrace(expectedAsIn, "quantity implementation", fmt"{qname} = impl", fmt"{qname}: unit(abbr) = impl")
+                error(fmt"expected quantity implementation in form '{qname} = impl' or '{qname}: unit(abbr) = impl', but 'afterName.repr' found", afterName)
 
             let unames = afterName[0]
             definition = afterName[1]
 
-            if not (unames.kind == nnkCall and 
-                    unames.len == 2 and
-                    unames[0].kind == nnkIdent and 
-                    unames[1].kind == nnkIdent): unames.errorTrace(expectedAsIn, "quantity unit name and abbreviated name", "unit(abbr)")
+            if not (unames.kind == nnkCall and unames.len == 2 and
+                    unames[0].kind == nnkIdent and unames[1].kind == nnkIdent): 
+                error(fmt"expected quantity unit name and abbreviated name in form 'unit(abbr)', but '{uname.repr}' found" , unames)
 
             uname = unames[0]                
             aname = unames[1]
 
-        else: quantity.errorTrace(notValidAs, "quantity declaration")
+        else: error(fmt"invalid quantity declaration: '{quantity.repr}'", quantity)
 
         result.add getAst(genQuantity(qname, definition))
         
@@ -405,10 +380,11 @@ macro unitPrefix*(code: untyped) =
 
     for prefix in code:
         if not (prefix.kind == nnkCall and prefix.len == 2):
-            prefix.errorTrace(expectedAsIn, "prefix declaration", "prefix: number")
+            error(fmt"expected prefix declaration in form 'prefix: number' but found '{prefix.repr}'", prefix)
 
         let (name, value) = (prefix[0], prefix[1])
-        if name.kind != nnkIdent: name.errorTrace(identExpectedAs, "prefix name")
+        if name.kind != nnkIdent: 
+            error(fmt"expected identifier as prefix name but found '{name.repr}'", name) 
 
         result.add getAst(genPrefix(name, value, ident"x"))
 
@@ -421,15 +397,15 @@ macro unitAbbr*(code: untyped) =
 
     for abbr in code:
         if not (abbr.kind == nnkAsgn and abbr.len == 2):
-            abbr.errorTrace(expectedAsIn, "prefixed unit abbreviation declaration", "abbr = prefix.unit")
+            error(fmt"expected prefixed unit abbreviation declaration in form 'abbr = prefix.unit', but found '{abbr.repr}'", abbr)
 
         let (name, what) = (abbr[0], abbr[1])
         if name.kind != nnkIdent: 
-            name.errorTrace(identExpectedAs, "prefix unit abbreviation")
-        if not (what.kind == nnkDotExpr and 
-                what.len == 2 and 
-                what[0].kind == nnkIdent and 
-                what[1].kind == nnkIdent): what.errorTrace(expectedAsIn, "prefixed unit", fmt"{name} = prefixed.unit")
+            error(fmt"identifier expected as prefix unit abbreviation but found '{name.repr}'", name) 
+
+        if not (what.kind == nnkDotExpr and what.len == 2 and 
+                what[0].kind == nnkIdent and what[1].kind == nnkIdent): 
+            error(fmt"expected prefixed unit in form '{name} = prefixed.unit', but found '{what.repr}'", what)
         
         let (prefix, unit) = (what[0], what[1])
         result.add getAst(genAbbrFun(name, prefix, unit, ident"x"))
@@ -446,7 +422,7 @@ macro unitAlias*(code: untyped) =
     for aliasDef in code:
         # Any alias parses as assignment with alias on the left side and definition on the right side.
         if not (aliasDef.kind == nnkAsgn and aliasDef.len == 2):
-            aliasDef.errorTrace(expectedAsIn, "alias definition", "x.alias = expr(x).unit", "x.alias(abbr) = expr(x).unit")
+            error(fmt"expected alias definition in form 'x.alias = expr(x).unit' or 'x.alias(abbr) = expr(x).unit', but found {aliasDef.repr}", aliasDef)
 
         var (aliasExpr, def) = (aliasDef[0], aliasDef[1])
         var abbr: NimNode
@@ -455,17 +431,17 @@ macro unitAlias*(code: untyped) =
             abbr      = aliasExpr[1]
             aliasExpr = aliasExpr[0]
 
-        if not (aliasExpr.kind == nnkDotExpr and 
-                aliasExpr.len == 2 and 
-                aliasExpr[0].kind == nnkIdent and 
-                aliasExpr[1].kind == nnkIdent): aliasExpr.errorTrace(expectedAsIn, "alias definition", "x.alias", "x.alias(abbr)")
+        if not (aliasExpr.kind == nnkDotExpr and aliasExpr.len == 2 and 
+                aliasExpr[0].kind == nnkIdent and aliasExpr[1].kind == nnkIdent): 
+            error(fmt"expected alias definition in form 'x.alias' or 'x.alias(abbr)', but found '{aliasExpr.repr}'", aliasExpr)
             
         let (x, alias) = (aliasExpr[0], aliasExpr[1])
 
         if not (def.kind == nnkDotExpr and def.len == 2):
-            def.errorTrace(expectedAsMaybe, "unit alias implementation", fmt"({def.repr}).unit", fmt"expr({$x}).unit")
+            error(fmt"expected unit alias implementation in form 'expr({$x}).unit', but found {def.repr}", def)
 
         let (expr, unit) = (def[0], def[1])
 
         result.add getAst(genAlias(alias, x, expr, unit))
-        if abbr != nil: result.add getAst(genAlias(abbr, x, expr, unit)) 
+        if abbr != nil: 
+            result.add getAst(genAlias(abbr, x, expr, unit))

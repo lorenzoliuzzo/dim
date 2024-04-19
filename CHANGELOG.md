@@ -33,6 +33,7 @@ All notable changes to this project will be documented in this file.
 
 - *(units.nim)* Unused prefix import removed.
 - *(tests)* Removed output in order to build a SI unitSystem.
+- All the src code is now in units/system while the test code is in units/si.
 
 ### 🧪 Testing
 
